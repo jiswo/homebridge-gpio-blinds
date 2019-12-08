@@ -1,5 +1,4 @@
 var _ = require('underscore');
-
 var rpio = require('rpio');
 var gpio = require('rpi-gpio');
 
@@ -88,8 +87,9 @@ function BlindsAccessory(log, config) {
         .on('set', this.setTargetPosition.bind(this));
 
     if (this.externalButtonPin) {
+        this.log("Setup external switch on pin: %s", this.externalButtonPin);
         gpio.on('change', function (channel, value) {
-            this.log('Channel ' + channel + ' value is now ' + value);
+            console.log('Channel ' + channel + ' value is now ' + value);
         });
         gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH);
     }
