@@ -1,8 +1,6 @@
 var _ = require('underscore');
 var rpio = require('rpio');
 
-var wpi = require('node-wiring-pi');
-
 var Service, Characteristic, HomebridgeAPI;
 
 const STATE_DECREASING = 0;
@@ -88,13 +86,10 @@ function BlindsAccessory(log, config) {
         rpio.open(this.pinOpen, rpio.INPUT, rpio.PULL_UP);
 
     if (this.externalButtonPin) {
-
-        wpi.setup('wpi');
-        this.device = new DigitalInput(this, this.log, this.externalButtonPin);
-
+        rpio.open(this.externalButtonPin, rpio.OUTPUT, rpio.HIGH);
         //rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_DOWN);
         //this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
-        //this.switch = new Switch(this, this.log, this.externalButtonPin);
+        this.button = new ExternalButton(this, this.log, this.externalButtonPin);
     }
 
     this.service
@@ -111,6 +106,9 @@ function BlindsAccessory(log, config) {
         .on('set', this.setTargetPosition.bind(this));
 
     this.addService(this.service);
+
+
+    this.service.setCharacteristic(Characteristic.PositionState, this.targetPosition >= this.currentPosition ? STATE_INCREASING : STATE_DECREASING);
 }
 
 BlindsAccessory.prototype.getPositionState = function (callback) {
@@ -248,62 +246,8 @@ BlindsAccessory.prototype.addService = function (service) {
     this.services.push(service);
 };
 
-function DigitalInput(accesory, log, pin) {
+function ExternalButton(accesory, log, pin) {
     this.log = log;
     this.pin = pin;
-    this.inverted = true;
-    this.toggle = true;
-    this.postpone = 100;
-    this.pullUp = true;
-
-    this.INPUT_ACTIVE = this.inverted ? wpi.HIGH : wpi.LOW;
-    this.INPUT_INACTIVE = this.inverted ? wpi.LOW : wpi.HIGH;
-
-    this.ON_STATE = 1;
-    this.OFF_STATE = 0;
-
-    var service = new Service["ContactSensor"]("GPIO18");
-
-    this.stateCharac = service.getCharacteristic(Characteristic.ContactSensorState);
-     
-    this.stateCharac.on('get', this.getState.bind(this));
-
-    wpi.pinMode(this.pin, wpi.INPUT);
-    wpi.pullUpDnControl(this.pin, this.pullUp ? wpi.PUD_UP : wpi.PUD_OFF);
-    if (this.toggle)
-        wpi.wiringPiISR(this.pin, wpi.INT_EDGE_FALLING, this.toggleState.bind(this)); // Falling because pin are pulled-up (so triggers when became low)
-    else
-        wpi.wiringPiISR(this.pin, wpi.INT_EDGE_BOTH, this.stateChange.bind(this));
-
-    accesory.addService(service);
+    
 }
-
-DigitalInput.prototype = {
-    stateChange: function (delta) {
-        this.log("1");
-        if (this.postponeId === null) {
-            this.postponeId = setTimeout(function () {
-                this.postponeId = null;
-                var state = wpi.digitalRead(this.pin);
-                this.stateCharac.updateValue(state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
-            }.bind(this), this.postpone);
-        }
-    },
-
-    toggleState: function (delta) {
-        this.log("2");
-        if (this.postponeId === null) {
-            this.postponeId = setTimeout(function () {
-                this.postponeId = null;
-                var state = wpi.digitalRead(this.pin);
-                this.stateCharac.updateValue(this.stateCharac.value === this.ON_STATE ? this.OFF_STATE : this.ON_STATE);
-            }.bind(this), this.postpone);
-        }
-    },
-
-    getState: function (callback) {
-        this.log("3");
-        var state = wpi.digitalRead(this.pin);
-        callback(null, state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
-    }
-};
