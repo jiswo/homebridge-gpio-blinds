@@ -251,8 +251,8 @@ BlindsAccessory.prototype.addService = function (service) {
 function DigitalInput(accesory, log, pin) {
     this.log = log;
     this.pin = pin;
-    this.inverted = false;
-    this.toggle = false;
+    this.inverted = true;
+    this.toggle = true;
     this.postpone = 100;
     this.pullUp = true;
 
