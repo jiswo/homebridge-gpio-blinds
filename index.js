@@ -1,7 +1,7 @@
 var _ = require('underscore');
 var rpio = require('rpio');
-//var gpio = require('rpi-gpio');
-var wpi = require('node-wiring-pi');
+var gpio = require('rpi-gpio').promise;
+//var wpi = require('node-wiring-pi');
 
 var Service, Characteristic, HomebridgeAPI;
 
@@ -103,13 +103,9 @@ function BlindsAccessory(log, config) {
     this.addService(this.service);
 
     if (this.externalButtonPin) {
-        rpio.poll(this.externalButtonPin, this.test);
+        this.switch = new Switch(this, this.log, this.externalButtonPin);
     }
 }
-
-BlindsAccessory.prototype.test = function(){
-    this.log("test");
-};
 
 BlindsAccessory.prototype.getPositionState = function (callback) {
     this.log("Position state: %s", this.positionState);
@@ -245,3 +241,15 @@ BlindsAccessory.prototype.getServices = function () {
 BlindsAccessory.prototype.addService = function (service) {
     this.services.push(service);
 };
+
+function Switch(accessory, log, pin) {
+    this.accessory = accessory;
+    this.log = log;
+    this.pin = pin;
+
+    gpio.on('change', function (channel, value) {
+        this.log('Channel ' + channel + ' value is now ' + value);
+    });
+
+    gpio.setup(this.pin, gpio.DIR_IN, gpio.EDGE_BOTH);
+}
