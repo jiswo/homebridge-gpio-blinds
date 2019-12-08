@@ -1,7 +1,7 @@
 var _ = require('underscore');
 var rpio = require('rpio');
-//var gpio = require('rpi-gpio');
-var gpio = require('pi-gpio');
+var gpio = require('rpi-gpio');
+//var gpio = require('pi-gpio');
 //var wpi = require('node-wiring-pi');
 
 var Service, Characteristic, HomebridgeAPI;
@@ -104,13 +104,10 @@ function BlindsAccessory(log, config) {
     this.addService(this.service);
 
     if (this.externalButtonPin) {
-        this.switchService = new Service.Switch("GPIO18");
-        this.switchService
-            .getCharacteristic(Characteristic.On)
-            .on('get', this.getOn.bind(this))
-            .on('set', this.setOn.bind(this));
-
-        this.addService(this.switchService);
+        gpio.on('change', function (channel, value) {
+            this.log('Channel ' + channel + ' value is now ' + value);
+        });
+        gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH);
     }
 }
 
@@ -247,55 +244,4 @@ BlindsAccessory.prototype.getServices = function () {
 
 BlindsAccessory.prototype.addService = function (service) {
     this.services.push(service);
-};
-
-BlindsAccessory.prototype.getOn = function (callback) {
-    gpio.read(this.externalButtonPin, function (err, value) {
-        if (err) {
-            callback(err);
-        } else {
-            var on = value;
-            callback(null, on);
-        }
-    });
-};
-
-BlindsAccessory.prototype.setOn = function (on, callback) {
-    if (on) {
-        this.pinAction(0);
-        if (is_defined(this.durationUp) && is_int(this.durationUp)) {
-            this.pinTimer();
-        }
-        callback(null);
-    } else {
-        this.pinAction(1);
-        callback(null);
-    }
-};
-
-BlindsAccessory.prototype.pinAction = function (action) {
-    this.log('Turning ' + (action === 0 ? 'on' : 'off') + ' pin #' + this.externalButtonPin);
-
-    var self = this;
-    gpio.open(self.pin, 'output', function () {
-        gpio.write(self.pin, action, function () {
-            gpio.close(self.pin);
-            return true;
-        });
-    });
-};
-
-BlindsAccessory.prototype.pinTimer = function () {
-    var self = this;
-    setTimeout(function () {
-        self.pinAction(1);
-    }, this.durationUp);
-};
-
-var is_int = function (n) {
-    return n % 1 === 0;
-};
-
-var is_defined = function (v) {
-    return typeof v !== 'undefined';
 };
