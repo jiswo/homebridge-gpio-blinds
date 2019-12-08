@@ -1,6 +1,8 @@
 var _ = require('underscore');
 var rpio = require('rpio');
 
+var wpi = require('node-wiring-pi');
+
 var Service, Characteristic, HomebridgeAPI;
 
 const STATE_DECREASING = 0;
@@ -86,9 +88,13 @@ function BlindsAccessory(log, config) {
         rpio.open(this.pinOpen, rpio.INPUT, rpio.PULL_UP);
 
     if (this.externalButtonPin) {
-        rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_DOWN);
-        this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
+
+        wpi.setup('wpi');
         this.switch = new Switch(this, this.log, this.externalButtonPin);
+
+        //rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_DOWN);
+        //this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
+        //this.switch = new Switch(this, this.log, this.externalButtonPin);
     }
 
     this.service
@@ -261,3 +267,88 @@ function Switch(accessory, log, pin) {
         this.log('Button pressed on pin P%d', pin);
     }, rpio.POLL_LOW);
 }
+
+function DigitalInput(accesory, log, pin) {
+    this.log = log;
+    this.pin = pin;
+    this.inverted = false;
+    this.toggle = false;
+    this.postpone = 100;
+    this.pullUp = true;
+
+    this.INPUT_ACTIVE = this.inverted ? wpi.HIGH : wpi.LOW;
+    this.INPUT_INACTIVE = this.inverted ? wpi.LOW : wpi.HIGH;
+
+    this.ON_STATE = 1;
+    this.OFF_STATE = 0;
+
+    var service = new Service["ContactSensor"]("GPIO18");
+
+    this.stateCharac = service.getCharacteristic(Characteristic.ContactSensorState);
+     
+    this.stateCharac
+        .on('get', this.getState.bind(this));
+
+    wpi.pinMode(this.pin, wpi.INPUT);
+    wpi.pullUpDnControl(this.pin, this.pullUp ? wpi.PUD_UP : wpi.PUD_OFF);
+    if (this.toggle)
+        wpi.wiringPiISR(this.pin, wpi.INT_EDGE_FALLING, this.toggleState.bind(this)); // Falling because pin are pulled-up (so triggers when became low)
+    else
+        wpi.wiringPiISR(this.pin, wpi.INT_EDGE_BOTH, this.stateChange.bind(this));
+
+    accesory.addService(service);
+
+    ///* Occupancy sensor for MotionSensor */
+    //if (config.occupancy) {
+    //    if (!config.occupancy.name) throw new Error("'name' parameter is missing for occupancy");
+    //    this.occupancy = new Service.OccupancySensor(config.occupancy.name);
+    //    this.occupancyTimeout = (config.occupancy.timeout || 60) * 1000;
+    //    accesory.addService(this.occupancy);
+    //}
+}
+
+DigitalInput.prototype = {
+    stateChange: function (delta) {
+        if (this.postponeId === null) {
+            this.postponeId = setTimeout(function () {
+                this.postponeId = null;
+                var state = wpi.digitalRead(this.pin);
+                this.stateCharac.updateValue(state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
+                if (this.occupancy) {
+                    this.occupancyUpdate(state);
+                }
+            }.bind(this), this.postpone);
+        }
+    },
+
+    toggleState: function (delta) {
+        if (this.postponeId === null) {
+            this.postponeId = setTimeout(function () {
+                this.postponeId = null;
+                var state = wpi.digitalRead(this.pin);
+                this.stateCharac.updateValue(this.stateCharac.value === this.ON_STATE ? this.OFF_STATE : this.ON_STATE);
+            }.bind(this), this.postpone);
+        }
+    },
+
+    getState: function (callback) {
+        var state = wpi.digitalRead(this.pin);
+        callback(null, state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
+    },
+
+    occupancyUpdate: function (state) {
+        var characteristic = this.occupancy.getCharacteristic(Characteristic.OccupancyDetected);
+        if (state === this.INPUT_ACTIVE) {
+            characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_DETECTED);
+            if (this.occupancyTimeoutID !== null) {
+                clearTimeout(this.occupancyTimeoutID);
+                this.occupancyTimeoutID = null;
+            }
+        } else if (characteristic.value === Characteristic.OccupancyDetected.OCCUPANCY_DETECTED) { // On motion ends
+            this.occupancyTimeoutID = setTimeout(function () {
+                characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED);
+                this.occupancyTimeoutID = null;
+            }.bind(this), this.occupancyTimeout);
+        }
+    }
+};
