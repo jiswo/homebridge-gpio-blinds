@@ -241,8 +241,8 @@ function DigitalInput(accesory, log, pin) {
     this.postpone = 100;
     this.pullUp = true;
 
-    this.INPUT_ACTIVE = wpi.HIGH;
-    this.INPUT_INACTIVE = wpi.LOW;
+    this.INPUT_ACTIVE = wpi.LOW;
+    this.INPUT_INACTIVE = wpi.HIGH;
 
     this.ON_STATE = 1;
     this.OFF_STATE = 0;
@@ -270,9 +270,6 @@ DigitalInput.prototype = {
                 this.postponeId = null;
                 var state = wpi.digitalRead(this.pin);
                 this.stateCharac.updateValue(state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
-                if (this.occupancy) {
-                    this.occupancyUpdate(state);
-                }
             }.bind(this), this.postpone);
         }
     },
@@ -290,21 +287,5 @@ DigitalInput.prototype = {
     getState: function (callback) {
         var state = wpi.digitalRead(this.pin);
         callback(null, state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
-    },
-
-    occupancyUpdate: function (state) {
-        var characteristic = this.occupancy.getCharacteristic(Characteristic.OccupancyDetected);
-        if (state === this.INPUT_ACTIVE) {
-            characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_DETECTED);
-            if (this.occupancyTimeoutID !== null) {
-                clearTimeout(this.occupancyTimeoutID);
-                this.occupancyTimeoutID = null;
-            }
-        } else if (characteristic.value === Characteristic.OccupancyDetected.OCCUPANCY_DETECTED) { // On motion ends
-            this.occupancyTimeoutID = setTimeout(function () {
-                characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED);
-                this.occupancyTimeoutID = null;
-            }.bind(this), this.occupancyTimeout);
-        }
     }
 };
