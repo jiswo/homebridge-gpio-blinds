@@ -102,7 +102,7 @@ function BlindsAccessory(log, config) {
 
     if (this.externalButtonPin) {
         rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_UP);
-        this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
+        //this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
         //this.switch = new Switch(this, this.log, this.externalButtonPin);
         rpio.poll(this.externalButtonPin, this.pollcb, rpio.POLL_LOW);
     }
@@ -120,7 +120,7 @@ BlindsAccessory.prototype.pollcb = function (pin) {
     if (rpio.read(pin))
         return;
 
-    console.log('Button pressed on pin P%d', pin);
+    this.log('Button pressed on pin P%d', pin);
 };
 
 BlindsAccessory.prototype.getPositionState = function (callback) {
