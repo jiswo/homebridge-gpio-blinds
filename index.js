@@ -1,6 +1,5 @@
 var _ = require('underscore');
 var rpio = require('rpio');
-var gpio = require('rpi-gpio');
 
 var Service, Characteristic, HomebridgeAPI;
 
@@ -102,9 +101,27 @@ function BlindsAccessory(log, config) {
     this.addService(this.service);
 
     if (this.externalButtonPin) {
-        this.switch = new Switch(this, this.log, this.externalButtonPin);
+        rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_UP);
+        this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
+        //this.switch = new Switch(this, this.log, this.externalButtonPin);
+        rpio.poll(this.pin, this.pollcb, rpio.POLL_LOW);
     }
 }
+
+
+BlindsAccessory.prototype.pollcb = function (pin) {
+    /*
+     * Wait for a small period of time to avoid rapid changes which
+     * can't all be caught with the 1ms polling frequency.  If the
+     * pin is no longer down after the wait then ignore it.
+     */
+    rpio.msleep(20);
+
+    if (rpio.read(pin))
+        return;
+
+    console.log('Button pressed on pin P%d', pin);
+};
 
 BlindsAccessory.prototype.getPositionState = function (callback) {
     this.log("Position state: %s", this.positionState);
@@ -245,10 +262,4 @@ function Switch(accessory, log, pin) {
     this.accessory = accessory;
     this.log = log;
     this.pin = pin;
-
-    gpio.on('change', function (channel, value) {
-        this.log('Channel ' + channel + ' value is now ' + value);
-    });
-
-    gpio.setup(this.pin, gpio.DIR_OUT, gpio.EDGE_BOTH);
 }
