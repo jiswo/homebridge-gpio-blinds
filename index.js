@@ -247,7 +247,7 @@ function Switch(accessory, log, pin) {
     this.log = log;
     this.pin = pin;
 
-    rpio.poll(this.externalButtonPin, function (pin) {
+    rpio.poll(this.pin, function (pin) {
         /*
          * Wait for a small period of time to avoid rapid changes which
          * can't all be caught with the 1ms polling frequency.  If the
