@@ -1,6 +1,8 @@
 var _ = require('underscore');
 
 var rpio = require('rpio');
+var gpio = require('rpi-gpio');
+
 var Service, Characteristic, HomebridgeAPI;
 
 const STATE_DECREASING = 0;
@@ -14,15 +16,10 @@ module.exports = function (homebridge) {
     homebridge.registerAccessory('homebridge-gpio-blinds', 'Blinds', BlindsAccessory);
 };
 
-// setup global gpio object callbacks
-rpio.channel_callbacks = {};
-
 function BlindsAccessory(log, config) {
     _.defaults(config, { durationOffset: 0, activeLow: true, reedSwitchActiveLow: true });
 
     this.log = log;
-    this.services = [];
-
     this.name = config['name'];
     this.pinUp = config['pinUp'];
     this.pinDown = config['pinDown'];
@@ -91,13 +88,10 @@ function BlindsAccessory(log, config) {
         .on('set', this.setTargetPosition.bind(this));
 
     if (this.externalButtonPin) {
-        this.sensor = new ContactSensor("sensor test", this.externalButtonPin, this.log);
-
-        log('Sensor complete');
-        if (this.sensor) {
-            this.sensor.updateState(); // needed for initial state setting
-            this.services = [...this.services, ...this.sensor.services];
-        }
+        gpio.on('change', function (channel, value) {
+            this.log('Channel ' + channel + ' value is now ' + value);
+        });
+        gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH);
     }
 }
 
@@ -231,82 +225,3 @@ BlindsAccessory.prototype.oppositeDirection = function (moveUp) {
 BlindsAccessory.prototype.getServices = function () {
     return [this.infoService, this.service];
 };
-
-
-class Sensor {
-    constructor({ name, pin, log, service, callback }) {
-        this.state = false;
-        this.name = name;
-        this.pin = pin;
-        this.setStateCallback = callback;
-
-        if (this.name === undefined || this.pin === undefined) {
-            throw "Specify name and pin in config file.";
-        }
-
-        //setup
-        this._log = log;
-        this.services = [service];
-
-        this.log(`Pin ${this.pin}`);
-
-        rpio.channel_callbacks[this.pin] = this.setStateCallback;
-
-        // setup this sensors gpio pin
-        rpio.open(this.pin, rpio.INPUT, rpio.PULL_UP);
-        this.state = !!rpio.read(this.pin);
-        rpio.poll(this.pin, (pin) => {
-            var state = !!rpio.read(this.pin);
-
-            if (state !== this.state) {
-                this.log(`State changed from ${this.state} to ${state}`);
-                this.state = state;
-                rpio.channel_callbacks[this.pin](this.state);
-            }
-        });
-    }
-
-    log(message) {
-        this._log(`${this.constructor.name} "${this.name}": ${message}`);
-    }
-
-    getState(cb) {
-        this.log('getState', this.state);
-        cb(null, this.state);
-    }
-
-    getServices() {
-        return this.services;
-    }
-
-    updateState() {
-        if (this.setStateCallback) {
-            this.setStateCallback(this.state);
-        }
-    }
-}
-
-class ContactSensor extends Sensor {
-    constructor(name, pin, log) {
-        var service = new Service.ContactSensor(name);
-
-        super({
-            name,
-            pin,
-            log,
-            service,
-            callback: (value) => {
-                this.log(value);
-                service.setCharacteristic(Characteristic.ContactSensorState,
-                    value ?
-                        // This one feels backwards but a contact sensor's normal state must be not in contact?
-                        Characteristic.ContactSensorState.CONTACT_NOT_DETECTED :
-                        Characteristic.ContactSensorState.CONTACT_DETECTED);
-            }
-        });
-
-        service
-            .getCharacteristic(Characteristic.ContactSensorState)
-            .on('get', this.getState.bind(this));
-    }
-}
