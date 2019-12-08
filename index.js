@@ -90,7 +90,7 @@ function BlindsAccessory(log, config) {
     if (this.externalButtonPin) {
 
         wpi.setup('wpi');
-        this.switch = new Switch(this, this.log, this.externalButtonPin);
+        this.device = new DigitalInput(this, this.log, this.externalButtonPin);
 
         //rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_DOWN);
         //this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
@@ -247,26 +247,6 @@ BlindsAccessory.prototype.getServices = function () {
 BlindsAccessory.prototype.addService = function (service) {
     this.services.push(service);
 };
-
-function Switch(accessory, log, pin) {
-    this.accessory = accessory;
-    this.log = log;
-    this.pin = pin;
-
-    rpio.poll(this.pin, function (pin) {
-        /*
-         * Wait for a small period of time to avoid rapid changes which
-         * can't all be caught with the 1ms polling frequency.  If the
-         * pin is no longer down after the wait then ignore it.
-         */
-        rpio.msleep(20);
-
-        if (rpio.read(pin))
-            return;
-
-        this.log('Button pressed on pin P%d', pin);
-    }, rpio.POLL_LOW);
-}
 
 function DigitalInput(accesory, log, pin) {
     this.log = log;
