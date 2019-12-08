@@ -19,6 +19,8 @@ module.exports = function (homebridge) {
 function BlindsAccessory(log, config) {
     _.defaults(config, { durationOffset: 0, activeLow: true, reedSwitchActiveLow: true });
 
+    this.services = [];
+
     this.log = log;
     this.name = config['name'];
     this.pinUp = config['pinUp'];
@@ -55,6 +57,8 @@ function BlindsAccessory(log, config) {
         .setCharacteristic(Characteristic.Model, 'RaspberryPi GPIO Blinds')
         .setCharacteristic(Characteristic.SerialNumber, 'Version 1.1.2');
 
+    this.addService(this.infoService);
+
     this.finalBlindsStateTimeout;
     this.togglePinTimeout;
     this.intervalUp = this.durationUp / 100;
@@ -87,6 +91,8 @@ function BlindsAccessory(log, config) {
         .getCharacteristic(Characteristic.TargetPosition)
         .on('get', this.getTargetPosition.bind(this))
         .on('set', this.setTargetPosition.bind(this));
+
+    this.addService(this.service);
 
     if (this.externalButtonPin) {
         wpi.setup('wpi');
@@ -222,9 +228,11 @@ BlindsAccessory.prototype.oppositeDirection = function (moveUp) {
 };
 
 BlindsAccessory.prototype.getServices = function () {
-    return [this.infoService, this.service];
+    return this.services;
 };
-
+BlindsAccessory.prototype.addService = function (service) {
+    this.services.push(service);
+};
 
 function DigitalInput(accesory, log, pin) {
     this.log = log;
