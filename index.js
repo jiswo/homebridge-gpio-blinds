@@ -87,9 +87,8 @@ function BlindsAccessory(log, config) {
 
     if (this.externalButtonPin) {
         rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_DOWN);
-        //this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
-        //this.switch = new Switch(this, this.log, this.externalButtonPin);
-        rpio.poll(this.externalButtonPin, this.pollcb, rpio.POLL_LOW);
+        this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
+        this.switch = new Switch(this, this.log, this.externalButtonPin);
     }
 
     this.service
@@ -107,21 +106,6 @@ function BlindsAccessory(log, config) {
 
     this.addService(this.service);
 }
-
-
-BlindsAccessory.prototype.pollcb = function (pin) {
-    /*
-     * Wait for a small period of time to avoid rapid changes which
-     * can't all be caught with the 1ms polling frequency.  If the
-     * pin is no longer down after the wait then ignore it.
-     */
-    rpio.msleep(20);
-
-    if (rpio.read(pin))
-        return;
-
-    this.log('Button pressed on pin P%d', pin);
-};
 
 BlindsAccessory.prototype.getPositionState = function (callback) {
     this.log("Position state: %s", this.positionState);
@@ -262,4 +246,18 @@ function Switch(accessory, log, pin) {
     this.accessory = accessory;
     this.log = log;
     this.pin = pin;
+
+    rpio.poll(this.externalButtonPin, function (pin) {
+        /*
+         * Wait for a small period of time to avoid rapid changes which
+         * can't all be caught with the 1ms polling frequency.  If the
+         * pin is no longer down after the wait then ignore it.
+         */
+        rpio.msleep(20);
+
+        if (rpio.read(pin))
+            return;
+
+        this.log('Button pressed on pin P%d', pin);
+    }, rpio.POLL_LOW);
 }
