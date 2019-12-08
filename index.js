@@ -10,8 +10,16 @@ const STATE_INCREASING = 1;
 const STATE_STOPPED = 2;
 
 module.exports = function (homebridge) {
+    console.log("homebridge-gpio-device API version: " + homebridge.version);
+
+    // Accessory must be created from PlatformAccessory Constructor
+    Accessory = homebridge.platformAccessory;
+
     Service = homebridge.hap.Service;
     Characteristic = homebridge.hap.Characteristic;
+    UUIDGen = homebridge.hap.uuid;
+    Types = homebridge.hapLegacyTypes;
+
     HomebridgeAPI = homebridge;
     homebridge.registerAccessory('homebridge-gpio-blinds', 'Blinds', BlindsAccessory);
 };
@@ -70,6 +78,8 @@ function BlindsAccessory(log, config) {
         mapping: 'gpio'
     });
 
+    wpi.setup('wpi');
+
     rpio.open(this.pinUp, rpio.OUTPUT, this.initialState);
     rpio.open(this.pinDown, rpio.OUTPUT, this.initialState);
 
@@ -95,7 +105,6 @@ function BlindsAccessory(log, config) {
     this.addService(this.service);
 
     if (this.externalButtonPin) {
-        wpi.setup('wpi');
         this.device = new DigitalInput(this, this.log, this.externalButtonPin);
     }
 }
@@ -230,6 +239,7 @@ BlindsAccessory.prototype.oppositeDirection = function (moveUp) {
 BlindsAccessory.prototype.getServices = function () {
     return this.services;
 };
+
 BlindsAccessory.prototype.addService = function (service) {
     this.services.push(service);
 };
