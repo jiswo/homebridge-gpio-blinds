@@ -265,6 +265,7 @@ function DigitalInput(accesory, log, pin) {
 
 DigitalInput.prototype = {
     stateChange: function (delta) {
+        this.log("state change");
         if (this.postponeId === null) {
             this.postponeId = setTimeout(function () {
                 this.postponeId = null;
@@ -275,6 +276,7 @@ DigitalInput.prototype = {
     },
 
     toggleState: function (delta) {
+        this.log("toggle state");
         if (this.postponeId === null) {
             this.postponeId = setTimeout(function () {
                 this.postponeId = null;
@@ -285,6 +287,7 @@ DigitalInput.prototype = {
     },
 
     getState: function (callback) {
+        this.log("get state");
         var state = wpi.digitalRead(this.pin);
         callback(null, state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
     }
