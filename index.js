@@ -104,7 +104,7 @@ function BlindsAccessory(log, config) {
     this.addService(this.service);
 
     if (this.externalButtonPin) {
-        this.switchService = new Service.Switch("Blind switch");
+        this.switchService = new Service.Switch("GPIO18");
         this.switchService
             .getCharacteristic(Characteristic.On)
             .on('get', this.getOn.bind(this))
@@ -263,7 +263,7 @@ BlindsAccessory.prototype.getOn = function (callback) {
 BlindsAccessory.prototype.setOn = function (on, callback) {
     if (on) {
         this.pinAction(0);
-        if (is_defined(this.duration) && is_int(this.duration)) {
+        if (is_defined(this.durationUp) && is_int(this.durationUp)) {
             this.pinTimer();
         }
         callback(null);
@@ -289,7 +289,7 @@ BlindsAccessory.prototype.pinTimer = function () {
     var self = this;
     setTimeout(function () {
         self.pinAction(1);
-    }, this.duration);
+    }, this.durationUp);
 };
 
 var is_int = function (n) {
