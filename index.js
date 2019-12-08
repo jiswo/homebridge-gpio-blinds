@@ -96,7 +96,7 @@ function BlindsAccessory(log, config) {
 
     if (this.externalButtonPin) {
         wpi.setup('wpi');
-        this.device = new DigitalInput(this, log, this.externalButtonPin);    
+        this.device = new DigitalInput(this, this.log, this.externalButtonPin);
     }
 }
 
