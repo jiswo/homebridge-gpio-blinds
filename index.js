@@ -1,6 +1,6 @@
 var _ = require('underscore');
 var rpio = require('rpio');
-var gpio = require('rpi-gpio').promise;
+var gpio = require('rpi-gpio');
 //var wpi = require('node-wiring-pi');
 
 var Service, Characteristic, HomebridgeAPI;
