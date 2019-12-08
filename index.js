@@ -1,6 +1,7 @@
 var _ = require('underscore');
 var rpio = require('rpio');
-var gpio = require('rpi-gpio');
+//var gpio = require('rpi-gpio');
+var wpi = require('node-wiring-pi');
 
 var Service, Characteristic, HomebridgeAPI;
 
@@ -88,27 +89,8 @@ function BlindsAccessory(log, config) {
         .on('set', this.setTargetPosition.bind(this));
 
     if (this.externalButtonPin) {
-        //gpio.on('change', function (channel, value) {
-            
-        //});
-        //gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH);
-        //this.log("Setup done for external switch on pin: %s", this.externalButtonPin);
-
-        this.service
-            .getCharacteristic(Characteristic.ContactSensorState)
-            .on('get', this.getState.bind(this));
-
-        gpio.on('change', function (channel, value) {
-            if (channel === this.externalButtonPin) {
-                this.service.setCharacteristic(Characteristic.ContactSensorState, value);
-            }
-        }.bind(this));
-
-        gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH, function () {
-            gpio.read(this.externalButtonPin, function (err, value) {
-                state = value;
-            });
-        }.bind(this));
+        wpi.setup('wpi');
+        this.device = new DigitalInput(this, log, this.externalButtonPin);    
     }
 }
 
@@ -239,11 +221,82 @@ BlindsAccessory.prototype.oppositeDirection = function (moveUp) {
     return this.positionState === STATE_INCREASING && !moveUp || this.positionState === STATE_DECREASING && moveUp;
 };
 
-BlindsAccessory.prototype.getState = function (callback) {
-    this.log("get state");
-    callback(null, state);
-};
-
 BlindsAccessory.prototype.getServices = function () {
     return [this.infoService, this.service];
+};
+
+
+function DigitalInput(accesory, log, pin) {
+    this.log = log;
+    this.pin = pin;
+    this.toggle = true;
+    this.postpone = 100;
+    this.pullUp = true;
+
+    this.INPUT_ACTIVE = wpi.HIGH;
+    this.INPUT_INACTIVE = wpi.LOW;
+
+    this.ON_STATE = 1;
+    this.OFF_STATE = 0;
+
+    var service = new Service['ContactSensor']('Switch 1');
+
+    this.stateCharac = service.getCharacteristic(Characteristic.ContactSensorState);
+    this.stateCharac.on('get', this.getState.bind(this));
+
+    wpi.pinMode(this.pin, wpi.INPUT);
+    wpi.pullUpDnControl(this.pin, this.pullUp ? wpi.PUD_UP : wpi.PUD_OFF);
+
+    if (this.toggle)
+        wpi.wiringPiISR(this.pin, wpi.INT_EDGE_FALLING, this.toggleState.bind(this)); // Falling because pin are pulled-up (so triggers when became low)
+    else
+        wpi.wiringPiISR(this.pin, wpi.INT_EDGE_BOTH, this.stateChange.bind(this));
+
+    accesory.addService(service);
+}
+
+DigitalInput.prototype = {
+    stateChange: function (delta) {
+        if (this.postponeId === null) {
+            this.postponeId = setTimeout(function () {
+                this.postponeId = null;
+                var state = wpi.digitalRead(this.pin);
+                this.stateCharac.updateValue(state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
+                if (this.occupancy) {
+                    this.occupancyUpdate(state);
+                }
+            }.bind(this), this.postpone);
+        }
+    },
+
+    toggleState: function (delta) {
+        if (this.postponeId === null) {
+            this.postponeId = setTimeout(function () {
+                this.postponeId = null;
+                var state = wpi.digitalRead(this.pin);
+                this.stateCharac.updateValue(this.stateCharac.value === this.ON_STATE ? this.OFF_STATE : this.ON_STATE);
+            }.bind(this), this.postpone);
+        }
+    },
+
+    getState: function (callback) {
+        var state = wpi.digitalRead(this.pin);
+        callback(null, state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
+    },
+
+    occupancyUpdate: function (state) {
+        var characteristic = this.occupancy.getCharacteristic(Characteristic.OccupancyDetected);
+        if (state === this.INPUT_ACTIVE) {
+            characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_DETECTED);
+            if (this.occupancyTimeoutID !== null) {
+                clearTimeout(this.occupancyTimeoutID);
+                this.occupancyTimeoutID = null;
+            }
+        } else if (characteristic.value === Characteristic.OccupancyDetected.OCCUPANCY_DETECTED) { // On motion ends
+            this.occupancyTimeoutID = setTimeout(function () {
+                characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED);
+                this.occupancyTimeoutID = null;
+            }.bind(this), this.occupancyTimeout);
+        }
+    }
 };
