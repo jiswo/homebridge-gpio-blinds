@@ -94,9 +94,9 @@ function BlindsAccessory(log, config) {
         this.sensor = new ContactSensor("sensor test", this.externalButtonPin, this.log);
 
         log('Sensor complete');
-        if (sensor) {
-            sensor.updateState(); // needed for initial state setting
-            this.services = [...this.services, ...sensor.services];
+        if (this.sensor) {
+            this.sensor.updateState(); // needed for initial state setting
+            this.services = [...this.services, ...this.sensor.services];
         }
     }
 }
