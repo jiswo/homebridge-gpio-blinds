@@ -14,10 +14,15 @@ module.exports = function (homebridge) {
     homebridge.registerAccessory('homebridge-gpio-blinds', 'Blinds', BlindsAccessory);
 };
 
+// setup global gpio object callbacks
+rpio.channel_callbacks = {};
+
 function BlindsAccessory(log, config) {
     _.defaults(config, { durationOffset: 0, activeLow: true, reedSwitchActiveLow: true });
 
     this.log = log;
+    this.services = [];
+
     this.name = config['name'];
     this.pinUp = config['pinUp'];
     this.pinDown = config['pinDown'];
@@ -85,8 +90,15 @@ function BlindsAccessory(log, config) {
         .on('get', this.getTargetPosition.bind(this))
         .on('set', this.setTargetPosition.bind(this));
 
-    if (this.externalButtonPin)
+    if (this.externalButtonPin) {
         this.sensor = new ContactSensor("sensor test", this.externalButtonPin, this.log);
+
+        log('Sensor complete');
+        if (sensor) {
+            sensor.updateState(); // needed for initial state setting
+            this.services = [...this.services, ...sensor.services];
+        }
+    }
 }
 
 BlindsAccessory.prototype.getPositionState = function (callback) {
