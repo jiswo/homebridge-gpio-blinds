@@ -266,8 +266,7 @@ function DigitalInput(accesory, log, pin) {
 
     this.stateCharac = service.getCharacteristic(Characteristic.ContactSensorState);
      
-    this.stateCharac
-        .on('get', this.getState.bind(this));
+    this.stateCharac.on('get', this.getState.bind(this));
 
     wpi.pinMode(this.pin, wpi.INPUT);
     wpi.pullUpDnControl(this.pin, this.pullUp ? wpi.PUD_UP : wpi.PUD_OFF);
@@ -277,31 +276,22 @@ function DigitalInput(accesory, log, pin) {
         wpi.wiringPiISR(this.pin, wpi.INT_EDGE_BOTH, this.stateChange.bind(this));
 
     accesory.addService(service);
-
-    ///* Occupancy sensor for MotionSensor */
-    //if (config.occupancy) {
-    //    if (!config.occupancy.name) throw new Error("'name' parameter is missing for occupancy");
-    //    this.occupancy = new Service.OccupancySensor(config.occupancy.name);
-    //    this.occupancyTimeout = (config.occupancy.timeout || 60) * 1000;
-    //    accesory.addService(this.occupancy);
-    //}
 }
 
 DigitalInput.prototype = {
     stateChange: function (delta) {
+        this.log("1");
         if (this.postponeId === null) {
             this.postponeId = setTimeout(function () {
                 this.postponeId = null;
                 var state = wpi.digitalRead(this.pin);
                 this.stateCharac.updateValue(state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
-                if (this.occupancy) {
-                    this.occupancyUpdate(state);
-                }
             }.bind(this), this.postpone);
         }
     },
 
     toggleState: function (delta) {
+        this.log("2");
         if (this.postponeId === null) {
             this.postponeId = setTimeout(function () {
                 this.postponeId = null;
@@ -312,23 +302,8 @@ DigitalInput.prototype = {
     },
 
     getState: function (callback) {
+        this.log("3");
         var state = wpi.digitalRead(this.pin);
         callback(null, state === this.INPUT_ACTIVE ? this.ON_STATE : this.OFF_STATE);
-    },
-
-    occupancyUpdate: function (state) {
-        var characteristic = this.occupancy.getCharacteristic(Characteristic.OccupancyDetected);
-        if (state === this.INPUT_ACTIVE) {
-            characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_DETECTED);
-            if (this.occupancyTimeoutID !== null) {
-                clearTimeout(this.occupancyTimeoutID);
-                this.occupancyTimeoutID = null;
-            }
-        } else if (characteristic.value === Characteristic.OccupancyDetected.OCCUPANCY_DETECTED) { // On motion ends
-            this.occupancyTimeoutID = setTimeout(function () {
-                characteristic.updateValue(Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED);
-                this.occupancyTimeoutID = null;
-            }.bind(this), this.occupancyTimeout);
-        }
     }
 };
