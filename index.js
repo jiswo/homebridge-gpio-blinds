@@ -64,6 +64,7 @@ function BlindsAccessory(log, config) {
     rpio.init({
         mapping: 'gpio'
     });
+
     rpio.open(this.pinUp, rpio.OUTPUT, this.initialState);
     rpio.open(this.pinDown, rpio.OUTPUT, this.initialState);
 
@@ -87,11 +88,12 @@ function BlindsAccessory(log, config) {
         .on('set', this.setTargetPosition.bind(this));
 
     if (this.externalButtonPin) {
-        this.log("Setup external switch on pin: %s", this.externalButtonPin);
         gpio.on('change', function (channel, value) {
-            console.log('Channel ' + channel + ' value is now ' + value);
+            //console.log('Channel ' + channel + ' value is now ' + value);
+            this.togglePin(this.pinUp, this.durationUp);
         });
         gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH);
+        this.log("Setup done for external switch on pin: %s", this.externalButtonPin);
     }
 }
 
