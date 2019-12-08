@@ -88,12 +88,27 @@ function BlindsAccessory(log, config) {
         .on('set', this.setTargetPosition.bind(this));
 
     if (this.externalButtonPin) {
+        //gpio.on('change', function (channel, value) {
+            
+        //});
+        //gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH);
+        //this.log("Setup done for external switch on pin: %s", this.externalButtonPin);
+
+        this.service
+            .getCharacteristic(Characteristic.ContactSensorState)
+            .on('get', this.getState.bind(this));
+
         gpio.on('change', function (channel, value) {
-            //console.log('Channel ' + channel + ' value is now ' + value);
-            this.togglePin(this.pinUp, this.durationUp);
-        });
-        gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH);
-        this.log("Setup done for external switch on pin: %s", this.externalButtonPin);
+            if (channel === this.pin) {
+                this.service.setCharacteristic(Characteristic.ContactSensorState, value);
+            }
+        }.bind(this));
+
+        gpio.setup(this.pin, gpio.DIR_IN, gpio.EDGE_BOTH, function () {
+            gpio.read(this.pin, function (err, value) {
+                state = value;
+            });
+        }.bind(this));
     }
 }
 
@@ -222,6 +237,10 @@ BlindsAccessory.prototype.openCloseSensorMalfunction = function () {
 
 BlindsAccessory.prototype.oppositeDirection = function (moveUp) {
     return this.positionState === STATE_INCREASING && !moveUp || this.positionState === STATE_DECREASING && moveUp;
+};
+
+BlindsAccessory.prototype.getState = function (callback) {
+    callback(null, state);
 };
 
 BlindsAccessory.prototype.getServices = function () {
