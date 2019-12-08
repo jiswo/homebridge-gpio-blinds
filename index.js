@@ -99,13 +99,13 @@ function BlindsAccessory(log, config) {
             .on('get', this.getState.bind(this));
 
         gpio.on('change', function (channel, value) {
-            if (channel === this.pin) {
+            if (channel === this.externalButtonPin) {
                 this.service.setCharacteristic(Characteristic.ContactSensorState, value);
             }
         }.bind(this));
 
-        gpio.setup(this.pin, gpio.DIR_IN, gpio.EDGE_BOTH, function () {
-            gpio.read(this.pin, function (err, value) {
+        gpio.setup(this.externalButtonPin, gpio.DIR_IN, gpio.EDGE_BOTH, function () {
+            gpio.read(this.externalButtonPin, function (err, value) {
                 state = value;
             });
         }.bind(this));
@@ -240,6 +240,7 @@ BlindsAccessory.prototype.oppositeDirection = function (moveUp) {
 };
 
 BlindsAccessory.prototype.getState = function (callback) {
+    this.log("get state");
     callback(null, state);
 };
 
