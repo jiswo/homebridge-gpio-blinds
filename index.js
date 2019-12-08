@@ -85,6 +85,13 @@ function BlindsAccessory(log, config) {
     if (this.pinOpen)
         rpio.open(this.pinOpen, rpio.INPUT, rpio.PULL_UP);
 
+    if (this.externalButtonPin) {
+        rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_DOWN);
+        //this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
+        //this.switch = new Switch(this, this.log, this.externalButtonPin);
+        //rpio.poll(this.externalButtonPin, this.pollcb, rpio.POLL_LOW);
+    }
+
     this.service
         .getCharacteristic(Characteristic.CurrentPosition)
         .on('get', this.getCurrentPosition.bind(this));
@@ -99,13 +106,6 @@ function BlindsAccessory(log, config) {
         .on('set', this.setTargetPosition.bind(this));
 
     this.addService(this.service);
-
-    if (this.externalButtonPin) {
-        rpio.open(this.externalButtonPin, rpio.INPUT, rpio.PULL_DOWN);
-        //this.log('Pin is currently ' + (rpio.read(this.externalButtonPin) ? 'high' : 'low'));
-        //this.switch = new Switch(this, this.log, this.externalButtonPin);
-        rpio.poll(this.externalButtonPin, this.pollcb, rpio.POLL_LOW);
-    }
 }
 
 
